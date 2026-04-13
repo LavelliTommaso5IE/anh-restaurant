@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login Tenant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 h-screen flex items-center justify-center">
+    <div id="loading-state" class="text-xl font-semibold text-gray-600">
+      Inizializzazione in corso...
+    </div>
+
+    <div
+      id="tenant-error"
+      class="hidden text-center bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded shadow-md"
+    >
+      <h2 class="text-2xl font-bold mb-2">Errore 404</h2>
+      <p>Tenant non trovato o non attivo.</p>
+    </div>
+
+    <div
+      id="login-container"
+      class="hidden w-full max-w-md bg-white p-8 rounded-lg shadow-md"
+    >
+      <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
+        Accedi al tuo account
+      </h2>
+
+      <div
+        id="error-alert"
+        class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 relative"
+        role="alert"
+      >
+        <span class="block sm:inline">Credenziali non valide. Riprova.</span>
+      </div>
+
+      <form id="login-form">
+        <div class="mb-4">
+          <label for="email" class="block text-gray-700 text-sm font-bold mb-2"
+            >Email</label
+          >
+          <input
+            type="email"
+            id="email"
+            required
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div class="mb-6">
+          <label
+            for="password"
+            class="block text-gray-700 text-sm font-bold mb-2"
+            >Password</label
+          >
+          <input
+            type="password"
+            id="password"
+            required
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200"
+        >
+          Accedi
+        </button>
+      </form>
+    </div>
+
+    <script>
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      const backendPort = "8000";
+      const apiBaseUrl = `${protocol}//${hostname}:${backendPort}/api`;
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        const loadingState = document.getElementById("loading-state");
+        const tenantError = document.getElementById("tenant-error");
+        const loginContainer = document.getElementById("login-container");
+
+        const subdomain = hostname.split(".")[0];
+        if (subdomain) {
+          loginContainer.querySelector("h2").textContent =
+            `Accedi a ${subdomain.toUpperCase()}`;
+        }
+
+        try {
+          const tenantRes = await fetch(`${apiBaseUrl}/check-tenant`, {
+            headers: { Accept: "application/json" },
+          });
+
+          if (!tenantRes.ok) {
+            loadingState.classList.add("hidden");
+            tenantError.classList.remove("hidden");
+            return;
+          }
+
+          const meRes = await fetch(`${apiBaseUrl}/me`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            credentials: "include",
+          });
+
+          if (meRes.ok) {
+            // CORRETTO: Ora punta a dashboard.html
+            window.location.href = "dashboard.html";
+            return;
+          }
+
+          loadingState.classList.add("hidden");
+          loginContainer.classList.remove("hidden");
+        } catch (error) {
+          console.error("Errore di connessione API", error);
+          loadingState.textContent = "Impossibile connettersi al server.";
+        }
+      });
+
+      document
+        .getElementById("login-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const email = document.getElementById("email").value;
+          const password = document.getElementById("password").value;
+          const errorAlert = document.getElementById("error-alert");
+
+          errorAlert.classList.add("hidden");
+
+          try {
+            const loginRes = await fetch(`${apiBaseUrl}/login`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              credentials: "include",
+              body: JSON.stringify({ email, password }),
+            });
+
+            if (loginRes.ok) {
+              // CORRETTO: Ora punta a dashboard.html
+              window.location.href = "dashboard.html";
+            } else {
+              errorAlert.classList.remove("hidden");
+            }
+          } catch (error) {
+            console.error("Errore durante il login", error);
+            errorAlert.classList.remove("hidden");
+            errorAlert.textContent = "Errore di rete. Riprova più tardi.";
+          }
+        });
+    </script>
+  </body>
+</html>

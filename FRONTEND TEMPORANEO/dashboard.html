@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .section {
+        display: none;
+      }
+      .section.active {
+        display: block;
+      }
+      dialog::backdrop {
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(2px);
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 text-gray-800 font-sans">
+    <nav
+      class="bg-blue-800 text-white p-4 flex justify-between items-center shadow-md"
+    >
+      <div class="text-xl font-bold" id="tenant-name">Admin Panel</div>
+      <div class="flex space-x-6 items-center font-semibold">
+        <button onclick="switchTab('home')" class="hover:text-blue-300">
+          Home
+        </button>
+        <button onclick="switchTab('users')" class="hover:text-blue-300">
+          Utenti
+        </button>
+        <button onclick="switchTab('roles')" class="hover:text-blue-300">
+          Ruoli
+        </button>
+        <button onclick="switchTab('permissions')" class="hover:text-blue-300">
+          Permessi
+        </button>
+        <button
+          onclick="logout()"
+          class="bg-red-600 px-3 py-1 rounded hover:bg-red-700 transition"
+        >
+          Esci
+        </button>
+      </div>
+    </nav>
+
+    <div
+      id="alert"
+      class="hidden max-w-xl mx-auto mt-4 p-3 rounded text-white text-center font-bold shadow"
+    ></div>
+
+    <main
+      class="max-w-6xl mx-auto mt-6 p-6 bg-white shadow rounded-lg min-h-[500px]"
+    >
+      <div id="home" class="section active">
+        <h2 class="text-3xl font-bold mb-4">
+          Benvenuto, <span id="user-name" class="text-blue-600">...</span>
+        </h2>
+        <p class="text-gray-600 text-lg">
+          Pannello di controllo del Tenant. Usa il menu in alto per navigare.
+        </p>
+      </div>
+
+      <div id="users" class="section">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-2xl font-bold">Utenti</h2>
+          <button
+            onclick="openUserModal()"
+            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-bold"
+          >
+            + Nuovo Utente
+          </button>
+        </div>
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-gray-200">
+            <tr>
+              <th class="p-3 border">ID</th>
+              <th class="p-3 border">Nome e Cognome</th>
+              <th class="p-3 border">Email</th>
+              <th class="p-3 border">Stato</th>
+              <th class="p-3 border text-center">Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="users-list"></tbody>
+        </table>
+      </div>
+
+      <div id="roles" class="section">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-2xl font-bold">Ruoli</h2>
+          <button
+            onclick="openRoleModal()"
+            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-bold"
+          >
+            + Nuovo Ruolo
+          </button>
+        </div>
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-gray-200">
+            <tr>
+              <th class="p-3 border">ID</th>
+              <th class="p-3 border">Nome</th>
+              <th class="p-3 border text-center">Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="roles-list"></tbody>
+        </table>
+      </div>
+
+      <div id="permissions" class="section">
+        <h2 class="text-2xl font-bold mb-6">Elenco Permessi di Sistema</h2>
+        <ul
+          id="permissions-list"
+          class="grid grid-cols-2 md:grid-cols-3 gap-4"
+        ></ul>
+      </div>
+    </main>
+
+    <dialog id="modal-user" class="p-6 rounded-lg shadow-2xl w-[450px]">
+      <h3 class="text-xl font-bold mb-4" id="modal-user-title">Utente</h3>
+      <form id="form-user" onsubmit="saveUser(event)">
+        <input type="hidden" id="u-id" />
+
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <div>
+            <label class="text-sm font-bold">Nome</label
+            ><input
+              type="text"
+              id="u-name"
+              required
+              class="w-full border p-2 rounded"
+            />
+          </div>
+          <div>
+            <label class="text-sm font-bold">Cognome</label
+            ><input
+              type="text"
+              id="u-surname"
+              required
+              class="w-full border p-2 rounded"
+            />
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <label class="text-sm font-bold">Email</label
+          ><input
+            type="email"
+            id="u-email"
+            required
+            class="w-full border p-2 rounded"
+          />
+        </div>
+
+        <div class="mb-2">
+          <label class="text-sm font-bold"
+            >Password <small>(vuoto se non modifichi)</small></label
+          ><input
+            type="password"
+            id="u-pwd"
+            class="w-full border p-2 rounded"
+          />
+        </div>
+
+        <div
+          id="edit-only-fields"
+          class="hidden grid grid-cols-2 gap-2 mb-6 p-3 bg-gray-50 border rounded"
+        >
+          <div>
+            <label class="text-sm font-bold">Stato</label>
+            <select id="u-stato" class="w-full border p-2 rounded">
+              <option value="attivo">Attivo</option>
+              <option value="temp">Temp</option>
+              <option value="disattivato">Disattivato</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-bold">Ruolo ID</label>
+            <input
+              type="number"
+              id="u-role-id"
+              class="w-full border p-2 rounded"
+              placeholder="Es. 1"
+            />
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4">
+          <button
+            type="button"
+            onclick="document.getElementById('modal-user').close()"
+            class="bg-gray-400 text-white px-4 py-2 rounded"
+          >
+            Annulla
+          </button>
+          <button
+            type="submit"
+            class="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Salva
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="modal-role" class="p-6 rounded-lg shadow-2xl w-[400px]">
+      <h3 class="text-xl font-bold mb-4" id="modal-role-title">Ruolo</h3>
+      <form id="form-role" onsubmit="saveRole(event)">
+        <input type="hidden" id="r-id" />
+        <div class="mb-2">
+          <label class="text-sm font-bold">Nome Ruolo</label
+          ><input
+            type="text"
+            id="r-name"
+            required
+            class="w-full border p-2 rounded"
+          />
+        </div>
+        <div class="mb-6">
+          <label class="text-sm font-bold">Descrizione</label
+          ><textarea
+            id="r-desc"
+            class="w-full border p-2 rounded"
+            rows="3"
+          ></textarea>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button
+            type="button"
+            onclick="document.getElementById('modal-role').close()"
+            class="bg-gray-400 text-white px-4 py-2 rounded"
+          >
+            Annulla
+          </button>
+          <button
+            type="submit"
+            class="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Salva
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="modal-assign" class="p-6 rounded-lg shadow-2xl w-[500px]">
+      <h3 class="text-xl font-bold mb-4">
+        Permessi per:
+        <span id="assign-role-name" class="text-blue-600 font-black"></span>
+      </h3>
+      <form onsubmit="savePermissions(event)">
+        <input type="hidden" id="assign-role-id" />
+        <div
+          id="assign-list"
+          class="grid grid-cols-2 gap-3 mb-6 bg-gray-50 border p-4 rounded h-[300px] overflow-y-auto"
+        ></div>
+        <div class="flex justify-end gap-2">
+          <button
+            type="button"
+            onclick="document.getElementById('modal-assign').close()"
+            class="bg-gray-400 text-white px-4 py-2 rounded"
+          >
+            Annulla
+          </button>
+          <button
+            type="submit"
+            class="bg-green-600 text-white px-4 py-2 rounded font-bold"
+          >
+            Aggiorna
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+      // ---------------------------------------------------------
+      // CORREZIONE URL: Forziamo il protocollo HTTP e la porta 8000
+      // mantenendo dinamicamente l'hostname (es: tenant.localhost)
+      // ---------------------------------------------------------
+      const hostname = window.location.hostname; // es: acmecorporation.localhost
+      const API_URL = `http://${hostname}:8000/api`;
+
+      document.getElementById("tenant-name").textContent =
+        `Tenant: ${hostname.split(".")[0].toUpperCase()}`;
+      console.log("Le API puntano a:", API_URL); // Controlla questo nella console!
+
+      // Utility Call API
+      async function apiCall(endpoint, method = "GET", body = null) {
+        const config = {
+          method,
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        };
+        if (body) config.body = JSON.stringify(body);
+        try {
+          const res = await fetch(API_URL + endpoint, config);
+          if (res.status === 401 || res.status === 403) {
+            window.location.href = "login.html";
+            return null;
+          }
+          const data = await res.json().catch(() => null);
+          return { ok: res.ok, data };
+        } catch (e) {
+          console.error(`Errore fetch verso ${API_URL}${endpoint}:`, e);
+          showAlert(
+            "Errore di rete con l'API (Controlla CORS o se il server è acceso)",
+            false,
+          );
+          return null;
+        }
+      }
+
+      function showAlert(msg, success = true) {
+        const alert = document.getElementById("alert");
+        alert.textContent = msg;
+        alert.className = `max-w-xl mx-auto mt-4 p-3 rounded text-white text-center font-bold block transition ${success ? "bg-green-500" : "bg-red-500"}`;
+        setTimeout(() => alert.classList.add("hidden"), 3000);
+      }
+
+      function switchTab(tab) {
+        document
+          .querySelectorAll(".section")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById(tab).classList.add("active");
+        if (tab === "users") loadUsers();
+        if (tab === "roles") loadRoles();
+        if (tab === "permissions") loadPermissions();
+      }
+
+      window.onload = async () => {
+        const res = await apiCall("/me");
+        if (res?.ok && res.data) {
+          const user = res.data.user || res.data;
+          document.getElementById("user-name").textContent =
+            `${user.name} ${user.surname || ""}`;
+        }
+      };
+
+      // ---------------- UTENTI ----------------
+      async function loadUsers() {
+        const res = await apiCall("/users");
+        if (!res?.ok || !res.data)
+          return showAlert("Impossibile caricare utenti", false);
+
+        const tbody = document.getElementById("users-list");
+        tbody.innerHTML = "";
+        const users = res.data.data || res.data;
+
+        if (!Array.isArray(users))
+          return showAlert("Formato dati errato", false);
+
+        users.forEach((u) => {
+          const stato = u.stato
+            ? `<span class="bg-gray-200 px-2 py-1 rounded text-xs uppercase">${u.stato}</span>`
+            : "-";
+          tbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-3 border">${u.id}</td>
+                        <td class="p-3 border font-semibold">${u.name} ${u.surname || ""}</td>
+                        <td class="p-3 border">${u.email}</td>
+                        <td class="p-3 border">${stato}</td>
+                        <td class="p-3 border text-center">
+                            <button onclick="editUser(${u.id}, '${u.name}', '${u.surname || ""}', '${u.email}', '${u.stato || "attivo"}')" class="text-blue-600 font-bold hover:underline mr-3">Modifica</button>
+                            <button onclick="deleteUser(${u.id})" class="text-red-600 hover:underline">Elimina</button>
+                        </td>
+                    </tr>`;
+        });
+      }
+
+      function openUserModal() {
+        document.getElementById("form-user").reset();
+        document.getElementById("u-id").value = "";
+        document.getElementById("modal-user-title").textContent =
+          "Crea Nuovo Utente";
+        document.getElementById("edit-only-fields").classList.add("hidden");
+        document.getElementById("modal-user").showModal();
+      }
+
+      function editUser(id, name, surname, email, stato) {
+        document.getElementById("u-id").value = id;
+        document.getElementById("u-name").value = name;
+        document.getElementById("u-surname").value = surname;
+        document.getElementById("u-email").value = email;
+        document.getElementById("u-stato").value = stato;
+        document.getElementById("u-role-id").value = "";
+        document.getElementById("modal-user-title").textContent =
+          "Modifica Utente";
+        document.getElementById("edit-only-fields").classList.remove("hidden");
+        document.getElementById("modal-user").showModal();
+      }
+
+      async function saveUser(e) {
+        e.preventDefault();
+        const id = document.getElementById("u-id").value;
+        const body = {
+          name: document.getElementById("u-name").value,
+          surname: document.getElementById("u-surname").value,
+          email: document.getElementById("u-email").value,
+        };
+
+        const psw = document.getElementById("u-pwd").value;
+        if (psw) body.password = psw;
+
+        if (id) {
+          body.stato = document.getElementById("u-stato").value;
+          const roleId = document.getElementById("u-role-id").value;
+          if (roleId) body.role_id = roleId;
+        }
+
+        const res = id
+          ? await apiCall(`/users/${id}`, "PUT", body)
+          : await apiCall("/users", "POST", body);
+
+        if (res?.ok) {
+          showAlert(id ? "Utente modificato!" : "Utente creato!");
+          document.getElementById("modal-user").close();
+          loadUsers();
+        } else showAlert("Errore salvataggio utente", false);
+      }
+
+      async function deleteUser(id) {
+        if (!confirm("Eliminare definitivamente questo utente?")) return;
+        const res = await apiCall(`/users/${id}`, "DELETE");
+        if (res?.ok) {
+          showAlert("Utente eliminato");
+          loadUsers();
+        }
+      }
+
+      // ---------------- RUOLI ----------------
+      async function loadRoles() {
+        const res = await apiCall("/roles");
+        if (!res?.ok || !res.data) return;
+        const tbody = document.getElementById("roles-list");
+        tbody.innerHTML = "";
+        const roles = res.data.data || res.data;
+        roles.forEach((r) => {
+          const desc = (r.description || "").replace(/'/g, "\\'");
+          tbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-3 border w-16">${r.id}</td>
+                        <td class="p-3 border font-bold text-blue-800">${r.name}<br><span class="text-xs text-gray-500 font-normal">${r.description || ""}</span></td>
+                        <td class="p-3 border text-center w-64">
+                            <button onclick="openAssignModal(${r.id}, '${r.name}')" class="text-green-600 font-bold hover:underline mr-3">Permessi</button>
+                            <button onclick="editRole(${r.id}, '${r.name}', '${desc}')" class="text-blue-600 hover:underline mr-3">Modifica</button>
+                            <button onclick="deleteRole(${r.id})" class="text-red-600 hover:underline">Elimina</button>
+                        </td>
+                    </tr>`;
+        });
+      }
+
+      function openRoleModal() {
+        document.getElementById("form-role").reset();
+        document.getElementById("r-id").value = "";
+        document.getElementById("modal-role-title").textContent =
+          "Crea Nuovo Ruolo";
+        document.getElementById("modal-role").showModal();
+      }
+
+      function editRole(id, name, desc) {
+        document.getElementById("r-id").value = id;
+        document.getElementById("r-name").value = name;
+        document.getElementById("r-desc").value = desc;
+        document.getElementById("modal-role-title").textContent =
+          "Modifica Ruolo";
+        document.getElementById("modal-role").showModal();
+      }
+
+      async function saveRole(e) {
+        e.preventDefault();
+        const id = document.getElementById("r-id").value;
+        const body = {
+          name: document.getElementById("r-name").value,
+          description: document.getElementById("r-desc").value,
+        };
+        const res = id
+          ? await apiCall(`/roles/${id}`, "PUT", body)
+          : await apiCall("/roles", "POST", body);
+
+        if (res?.ok) {
+          showAlert("Ruolo salvato!");
+          document.getElementById("modal-role").close();
+          loadRoles();
+        } else showAlert("Errore salvataggio ruolo", false);
+      }
+
+      async function deleteRole(id) {
+        if (!confirm("Eliminare questo ruolo?")) return;
+        const res = await apiCall(`/roles/${id}`, "DELETE");
+        if (res?.ok) {
+          showAlert("Ruolo eliminato");
+          loadRoles();
+        }
+      }
+
+      // ---------------- PERMESSI ----------------
+      async function openAssignModal(roleId, roleName) {
+        document.getElementById("assign-role-name").textContent = roleName;
+        document.getElementById("assign-role-id").value = roleId;
+
+        const [permsRes, roleRes] = await Promise.all([
+          apiCall("/permissions"),
+          apiCall(`/roles/${roleId}`),
+        ]);
+
+        if (permsRes?.ok && roleRes?.ok) {
+          const allPerms = permsRes.data.data || permsRes.data;
+          const roleData = roleRes.data.data || roleRes.data;
+          const ownedIds = (roleData.permissions || []).map((p) => p.id);
+
+          const container = document.getElementById("assign-list");
+          container.innerHTML = "";
+
+          allPerms.forEach((p) => {
+            const checked = ownedIds.includes(p.id) ? "checked" : "";
+            container.innerHTML += `
+                        <label class="flex items-center space-x-2 bg-white p-2 border rounded shadow-sm cursor-pointer hover:bg-blue-50">
+                            <input type="checkbox" name="perm_ids" value="${p.id}" ${checked} class="w-4 h-4 text-blue-600 rounded">
+                            <span class="text-sm font-semibold">${p.name}</span>
+                        </label>`;
+          });
+          document.getElementById("modal-assign").showModal();
+        }
+      }
+
+      async function savePermissions(e) {
+        e.preventDefault();
+        const roleId = document.getElementById("assign-role-id").value;
+        const selectedIds = Array.from(
+          document.querySelectorAll('input[name="perm_ids"]:checked'),
+        ).map((cb) => cb.value);
+        const res = await apiCall(`/roles/${roleId}/permissions`, "PUT", {
+          permission_ids: selectedIds,
+        });
+
+        if (res?.ok) {
+          showAlert("Permessi aggiornati!");
+          document.getElementById("modal-assign").close();
+        } else showAlert("Errore aggiornamento permessi", false);
+      }
+
+      async function loadPermissions() {
+        const res = await apiCall("/permissions");
+        if (!res?.ok || !res.data) return;
+        const list = document.getElementById("permissions-list");
+        list.innerHTML = "";
+        const perms = res.data.data || res.data;
+        perms.forEach((p) => {
+          list.innerHTML += `<li class="bg-blue-50 text-blue-900 p-3 rounded font-bold border border-blue-200 shadow-sm text-center">${p.name}</li>`;
+        });
+      }
+
+      async function logout() {
+        await apiCall("/logout", "GET");
+        window.location.href = "login.html";
+      }
+    </script>
+  </body>
+</html>
